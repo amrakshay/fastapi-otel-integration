@@ -5,8 +5,10 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from otel.metrics.custom_metrics_manager import CustomMetricsManager
 import otel_utils
 from paig_os_utils import ensure_log_files_exist
+from otel.metrics.outgoing_http_metrics_manager import OutgoingHttpMetricsManager
 
 # Setup Logger
 import logging.config
@@ -44,6 +46,9 @@ app = FastAPI()
 
 # Load configuration
 load_configs()
+
+custom_metrics_manager = CustomMetricsManager()
+outgoing_http_metrics_manager = custom_metrics_manager.get_or_create_outgoing_http_metrics_manager()
 
 def log_access_request(request: Request, response, request_process_start_time):
     routes_to_ignore = ["/"]
@@ -98,3 +103,55 @@ def healthcheck():
 @app.get("/hello", tags=["Hello"])
 async def hello():
     return {"message": "Hello World"}
+
+@app.get("/trust3", tags=["Trust3"])
+async def trust3():
+    outgoing_http_metrics_manager.increment_outgoing_http_requests_sent_count("GET", "/trust3")
+    outgoing_http_metrics_manager.record_outgoing_http_requests_duration_milliseconds("GET", "/trust3", 200, 100)
+    return {"message": "Trust3 Called"}
+
+@app.get("/snowflake", tags=["Snowflake"])
+async def snowflake():
+    outgoing_http_metrics_manager.increment_outgoing_http_requests_sent_count("GET", "/snowflake")
+    outgoing_http_metrics_manager.record_outgoing_http_requests_duration_milliseconds("GET", "/snowflake", 200, 150)
+    return {"message": "Snowflake Called"}
+
+@app.get("/salesforce", tags=["Salesforce"])
+async def salesforce():
+    outgoing_http_metrics_manager.increment_outgoing_http_requests_sent_count("GET", "/salesforce")
+    outgoing_http_metrics_manager.record_outgoing_http_requests_duration_milliseconds("GET", "/salesforce", 200, 200)
+    return {"message": "Salesforce Called"}
+
+@app.get("/exception", tags=["Exception"])
+async def exception():
+    outgoing_http_metrics_manager.increment_outgoing_http_requests_sent_count("GET", "/exception")
+    outgoing_http_metrics_manager.record_outgoing_http_requests_duration_milliseconds("GET", "/exception", 500, 250)
+    raise Exception("Exception")
+
+@app.get("/bad-request", tags=["BadRequest"])
+async def bad_request():
+    """Endpoint that returns 400 status code"""
+    outgoing_http_metrics_manager.increment_outgoing_http_requests_sent_count("GET", "/bad-request")
+    outgoing_http_metrics_manager.record_outgoing_http_requests_duration_milliseconds("GET", "/bad-request", 400, 100)
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": "Bad Request",
+            "message": "This endpoint intentionally returns a 400 status code",
+            "code": 400
+        }
+    )
+
+@app.post("/create-resource", tags=["CreateResource"])
+async def create_resource():
+    """Endpoint that returns 201 status code"""
+    outgoing_http_metrics_manager.increment_outgoing_http_requests_sent_count("POST", "/create-resource")
+    outgoing_http_metrics_manager.record_outgoing_http_requests_duration_milliseconds("POST", "/create-resource", 201, 100)
+    return JSONResponse(
+        status_code=201,
+        content={
+            "message": "Resource created successfully",
+            "resource_id": "12345",
+            "status": "created"
+        }
+    )

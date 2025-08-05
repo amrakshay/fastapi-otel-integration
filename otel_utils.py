@@ -33,7 +33,7 @@ def setup_otel(service_name: str, logger: logging.Logger, app: FastAPI) -> None:
     enable_log_export = os.environ.get("OTEL_ENABLE_LOG_EXPORT", "false").lower() == "true"
     if enable_log_export:
         logger.info("OTEL log export is enabled. Setting up OTEL logging handler.")
-        from privacera_shield_common.otel.utils.logging_handler import setup_otel_logging_handler
+        from otel.utils.logging_handler import setup_otel_logging_handler
         setup_otel_logging_handler(logger, service_name)
     else:
         logger.info("OTEL log export is disabled.")
@@ -42,16 +42,25 @@ def setup_otel(service_name: str, logger: logging.Logger, app: FastAPI) -> None:
     enable_custom_metrics = os.environ.get("OTEL_ENABLE_CUSTOM_METRICS", "false").lower() == "true"
     if enable_custom_metrics:
         logger.info("Custom metrics are enabled. Initializing CustomMetricsManager.")
-        from privacera_shield_common.otel.metrics.custom_metrics_manager import CustomMetricsManager
-        CustomMetricsManager.init(service_name)
+        from otel.metrics.custom_metrics_manager import CustomMetricsManager
+        custom_metrics_manager = CustomMetricsManager()
+        custom_metrics_manager.init(service_name)
 
         # Enable FastAPI metrics if configured
         enable_fastapi_metrics = os.environ.get("OTEL_ENABLE_FASTAPI_METRICS", "false").lower() == "true"
         if enable_fastapi_metrics:
             logger.info("FastAPI metrics are enabled. Registering FastAPI metrics.")
-            CustomMetricsManager.register_fastapi_metrics(app, service_name)
+            custom_metrics_manager.register_fastapi_metrics(app, service_name)
         else:
             logger.info("FastAPI metrics are disabled.")
+
+        # Enable Outgoing Request Metrics if configured
+        enable_outgoing_http_metrics = os.environ.get("OTEL_ENABLE_OUTGOING_HTTP_METRICS", "false").lower() == "true"
+        if enable_outgoing_http_metrics:
+            logger.info("Outgoing request metrics are enabled. Initializing OutgoingRequestMetricsManager.")
+            custom_metrics_manager.register_outgoing_http_metrics(service_name, service_name)
+        else:
+            logger.info("Outgoing request metrics are disabled.")
     else:
         logger.info("Custom metrics are disabled.")
 
@@ -59,7 +68,7 @@ def setup_otel(service_name: str, logger: logging.Logger, app: FastAPI) -> None:
     enable_pyroscope = os.environ.get("OTEL_ENABLE_PYROSCOPE", "false").lower() == "true"
     if enable_pyroscope:
         logger.info("Pyroscope profiling is enabled. Setting up Pyroscope collector.")
-        from privacera_shield_common.otel.utils.pyroscope_collector import enable_pyroscope
+        from otel.utils.pyroscope_collector import enable_pyroscope
         pyroscope_server_address = os.environ.get("OTEL_PYROSCOPE_SERVER_ADDRESS", "http://localhost:4040")
         enable_pyroscope(service_name, pyroscope_server_address)
     else:
